@@ -1,0 +1,222 @@
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  Alert,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+} from 'react-native';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import RNFS from 'react-native-fs';
+import { audioPermissions } from './Helpers/Permissions';
+
+const Test = () => {
+  const [recordTime, setRecordTime] = useState('00:00:00');
+  const [playTime, setPlayTime] = useState('00:00:00');
+  const [duration, setDuration] = useState('00:00:00');
+  const [audioPath, setAudioPath] = useState('');
+  const [fileList, setFileList] = useState([]);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
+  const [isPlayingPaused, setIsPlayingPaused] = useState(false);
+
+  const audioRecorderPlayer = useRef(new AudioRecorderPlayer()).current;
+
+  const requestPermissions = async () => {
+    return await audioPermissions();
+  };
+
+  // Start Recording
+  const onStartRecord = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const path = `${RNFS.DocumentDirectoryPath}/${Date.now()}.mp3`;
+      setAudioPath(path);
+      await audioRecorderPlayer.startRecorder(path);
+
+      audioRecorderPlayer.addRecordBackListener(e => {
+        setRecordTime(audioRecorderPlayer.mmssss(Math.floor(e.current_position)));
+      });
+      setIsRecordingPaused(false);
+    } catch (error) {
+      console.error('Start Record Error:', error);
+    }
+  };
+
+  // Pause Recording
+  const onPauseRecord = async () => {
+    try {
+      await audioRecorderPlayer.pauseRecorder();
+      setIsRecordingPaused(true);
+    } catch (error) {
+      console.error('Pause Record Error:', error);
+    }
+  };
+
+  // Resume Recording
+  const onResumeRecord = async () => {
+    try {
+      await audioRecorderPlayer.resumeRecorder();
+      setIsRecordingPaused(false);
+    } catch (error) {
+      console.error('Resume Record Error:', error);
+    }
+  };
+
+  // Stop Recording
+  const onStopRecord = async () => {
+    try {
+      await audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+      setIsRecordingPaused(false);
+    } catch (error) {
+      console.error('Stop Record Error:', error);
+    }
+  };
+
+  // Start Playing
+  const onStartPlay = async () => {
+    if (!audioPath) {
+      Alert.alert('No Recording', 'Please record audio first.');
+      return;
+    }
+
+    try {
+      await audioRecorderPlayer.startPlayer(audioPath);
+      audioRecorderPlayer.addPlayBackListener(e => {
+        setPlayTime(audioRecorderPlayer.mmssss(Math.floor(e.current_position)));
+        setDuration(audioRecorderPlayer.mmssss(Math.floor(e.duration)));
+      });
+      setIsPlayingPaused(false);
+    } catch (error) {
+      console.error('Play Error:', error);
+    }
+  };
+
+  // Pause Playback
+  const onPausePlay = async () => {
+    try {
+      await audioRecorderPlayer.pausePlayer();
+      setIsPlayingPaused(true);
+    } catch (error) {
+      console.error('Pause Play Error:', error);
+    }
+  };
+
+  // Resume Playback
+  const onResumePlay = async () => {
+    try {
+      await audioRecorderPlayer.resumePlayer();
+      setIsPlayingPaused(false);
+    } catch (error) {
+      console.error('Resume Play Error:', error);
+    }
+  };
+
+  // Stop Playback
+  const onStopPlay = async () => {
+    try {
+      await audioRecorderPlayer.stopPlayer();
+      audioRecorderPlayer.removePlayBackListener();
+      setIsPlayingPaused(false);
+    } catch (error) {
+      console.error('Stop Play Error:', error);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Audio Recorder Player</Text>
+      <Text style={styles.timer}>{recordTime}</Text>
+
+      {/* Recording Buttons */}
+      <View style={styles.buttonGroup}>
+        <TouchableOpacity style={styles.button} onPress={onStartRecord}>
+          <Text style={styles.buttonText}>Record</Text>
+        </TouchableOpacity>
+        {isRecordingPaused ? (
+          <TouchableOpacity style={styles.button} onPress={onResumeRecord}>
+            <Text style={styles.buttonText}>Resume</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.button} onPress={onPauseRecord}>
+            <Text style={styles.buttonText}>Pause</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.button} onPress={onStopRecord}>
+          <Text style={styles.buttonText}>Stop</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Playback Buttons */}
+      <Text style={styles.timer}>
+        {playTime} / {duration}
+      </Text>
+      <View style={styles.buttonGroup}>
+        <TouchableOpacity style={styles.button} onPress={onStartPlay}>
+          <Text style={styles.buttonText}>Play</Text>
+        </TouchableOpacity>
+        {isPlayingPaused ? (
+          <TouchableOpacity style={styles.button} onPress={onResumePlay}>
+            <Text style={styles.buttonText}>Resume</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.button} onPress={onPausePlay}>
+            <Text style={styles.buttonText}>Pause</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.button} onPress={onStopPlay}>
+          <Text style={styles.buttonText}>Stop</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// Styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#455A64',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  timer: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+  },
+  button: {
+    backgroundColor: '#607D8B',
+    padding: 10,
+    margin: 5,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  divider: {
+    width: '90%',
+    height: 1,
+    backgroundColor: '#FFFFFF',
+    marginVertical: 20,
+  },
+});
+
+export default Test;
